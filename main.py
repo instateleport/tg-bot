@@ -15,6 +15,8 @@ BOT_USERNAME = config['BOT_USERNAME']
 HEADER_AUTH = config['HEADER_AUTH']
 HEADER_JWT_TOKEN = config['HEADER_JWT_TOKEN']
 
+INSTATELEPORT_API_BASE_URL = config['INSTATELEPORT_API_BASE_URL']
+
 LINKING_CHANNEL_MESSAGE = config['LINKING_CHANNEL_MESSAGE']
 PRESENT_NOT_FOUND_MESSAGE = config['PRESENT_NOT_FOUND_MESSAGE']
 
@@ -130,7 +132,7 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
         bot.delete_message(channel_id, message.id)
 
         response = requests.put(
-            'http://localhost:8000/api/v1/link-telegram/',
+            f'{INSTATELEPORT_API_BASE_URL}link-telegram/',
             headers=DEFAULT_HEADERS,
             json={
                 'telegram_username': message.chat.username,
