@@ -1,54 +1,49 @@
+import requests
 import telebot
 from telebot import types
-import configparser
-import random
-import requests
+from sqlalchemy import insert, select, update
+from sqlalchemy.exc import IntegrityError
 
-# чтение конфигов
-config_obj = configparser.ConfigParser()
-config_obj.read("сonfigfile.ini", encoding='utf-8-sig')
-
-token = config_obj["program_settings"]["token"]
-bot_link = config_obj["program_settings"]["bot_link"]
-bot_tag = "@" + bot_link.split("/")[-1]
-print(bot_tag)
-header_auth = config_obj["program_settings"]["header_auth"]
-header_token = config_obj["program_settings"]["header_token"]
-
-instructions_4_authors = config_obj["prewritten"]["instructions_4_authors"]
-user_without_sub = config_obj["prewritten"]["user_without_sub"]
-user_with_sub = config_obj["prewritten"]["user_with_sub"]
+from config import config
+from database.base import session
+from database.models import PresentMessage
 
 
-bot = telebot.TeleBot(token)
-header = {header_auth: header_token}
+BOT_TOKEN = config['BOT_TOKEN']
+BOT_URL = config['BOT_URL']
+BOT_USERNAME = config['BOT_USERNAME']
+HEADER_AUTH = config['HEADER_AUTH']
+HEADER_JWT_TOKEN = config['HEADER_JWT_TOKEN']
+
+LINKING_CHANNEL_MESSAGE = config['LINKING_CHANNEL_MESSAGE']
+PRESENT_NOT_FOUND_MESSAGE = config['PRESENT_NOT_FOUND_MESSAGE']
+
+DEFAULT_HEADERS = {
+    HEADER_AUTH: HEADER_JWT_TOKEN
+}
+
+bot = telebot.TeleBot(BOT_TOKEN)
 
 
-def extract_start_code(text):
-    # Extracts the start_code from the sent /start command.
-    return text.split()[1] if len(text.split()) > 1 else None
+def get_start_parameter(text, default=''):
+    return text.split()[1] if len(text.split()) > 1 else default
 
 
-def extract_uniqe_code(text):
-    # Extracts the uniqe_code
-    return text.split("_")[1]
+def extract_page_hash_from_message(message):
+    '''if visit this bot for linking channel to subscribe page'''
+    return message.split('-')[1]
 
 
-def paid_and_gift(channel_id):
-    # Here we should check subscription status
-    r = requests.get('https://instateleport.ru/api/v1/telegram-page/present/' + channel_id,
-                     headers=header)
-    if r.status_code == 200:
-        return r.json()["present_url"]
-    else:
-        return False
+def extract_channel_id_from_message(message):
+    '''if visit this bot via linked subscribe page'''
+    return message.split('_')[1]
 
 
-def link_generator(channel_id):
-    return bot_link + '?start=user_' + str(channel_id)
+def generate_link_for_subscribe_page(channel_id):
+    return f'{BOT_URL}?start=subscribe-page_{channel_id}'
 
 
-def link_finder(channel_id):
+def find_invite_link(channel_id):
     # Here we finding chanel associated with ID
     return bot.get_chat(channel_id).invite_link
 
@@ -65,71 +60,100 @@ def user_subscribed(chat_id, user_id):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
-    start_code = extract_start_code(message.text)
-    reply = "unexpected error"
+    start_parameter = get_start_parameter(message.text)
+    reply = 'unexpected error'
     markup = ''
-    if start_code:  # if the '/start' command contains a start_code
-        if "author" in start_code:
-                reply = instructions_4_authors
-                markup = types.InlineKeyboardMarkup()
-                global add_code
-                add_code = str(random.randint(0, 9000000))
-                markup.add(types.InlineKeyboardButton("Добавить бота", switch_inline_query=str(add_code)+"_"+str(chat_id)))
-        elif "user" in start_code:
-            uniqe_code = str(extract_uniqe_code(start_code))
-            print(uniqe_code)
-            if paid_and_gift(uniqe_code):
-                reply = user_with_sub + " " + link_finder(uniqe_code)
-                markup = types.InlineKeyboardMarkup()
-                markup.add(types.InlineKeyboardButton("Я подписался", callback_data="user-subscribed_" + uniqe_code))
-            else:
-                reply = user_without_sub
+    if 'subscribe-page' in start_parameter:
+        channel_id = extract_channel_id_from_message(start_parameter)
+        present_message = session.scalar(
+            select(PresentMessage).where(PresentMessage.channel_id == channel_id)
+        )
+        if present_message:
+            reply = present_message.presubscribe_message + ' ' + find_invite_link(channel_id)
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton('Я подписался', callback_data=f'user-subscribed_{channel_id}'))
+        else:
+            reply = PRESENT_NOT_FOUND_MESSAGE
     else:
-        reply = "Please visit me via a provided URL from the website."
+        try:
+            session.execute(
+                insert(PresentMessage).values(
+                    page_hash=start_parameter,
+                    chat_id=chat_id
+                )
+            )
+        except IntegrityError:
+            print('IntegrityError')
+        finally:
+            session.commit()
+        reply = LINKING_CHANNEL_MESSAGE
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton('Подключить канал', switch_inline_query=f'{chat_id}-{start_parameter}'))
     bot.send_message(chat_id, text=reply, reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-
-    reply = ""
-    if "user-subscribed" in call.data:
-        channel_id = extract_uniqe_code(call.data)
+    reply = None
+    if 'user-subscribed' in call.data:
+        channel_id = extract_channel_id_from_message(call.data)
         call_from_id = call.from_user.id
-        call_from = call.from_user.username
         if user_subscribed(channel_id, call_from_id):
-            gift = paid_and_gift(channel_id)
-            if gift:
-                requests.post(url='https://instateleport.ru/api/v1/telegram-page/subscriber/', headers=header, json={
-                    "telegram_user_id": call_from_id,
-                    "telegram_user_username": call_from,
-                    "telegram_channel_id": channel_id
-                })
-                bot.send_message(call_from_id, "Вот твой подарок: " + gift)
+            present_message = session.scalar(
+                select(PresentMessage).where(PresentMessage.channel_id == channel_id)
+            )
+            if present_message:
+                bot.send_message(
+                    call_from_id,
+                    present_message.present_message + f'\n<a href="{present_message.bot_button_url}">{present_message.bot_button_text}</a>',
+                    parse_mode='html'
+                )
             else:
-                reply = "Произошла неизвестная ошибка"
+                reply = 'Произошла неизвестная ошибка'
         else:
-            reply = "Ты не подписался на канал"
+            reply = 'Ты не подписался на канал'
     bot.answer_callback_query(call.id, reply)
 
 
-# Waiting
 @bot.channel_post_handler(content_types='text')
-def channel(message):
-    global add_code
-    if bot_tag in message.text:
-        try:
-            if add_code in message.text:
-                del add_code
-                chat_id = extract_uniqe_code(message.text.split()[1])
-                print(chat_id)
-                channel_id = message.chat.id
-                link = link_generator(channel_id)
-                bot.delete_message(channel_id, message.id)
-                bot.send_message(chat_id, text="Вот твоя ссылка, вставь ее в кофигуратор " + link)
-        except NameError:
-            pass
+def channel_has_message_for_linking_subscribe_page_handler(message):
+    page_hash = extract_page_hash_from_message(message.text)
+    print(f'{page_hash=}')
+    chat_id = session.scalar(
+        select(PresentMessage).where(PresentMessage.page_hash == page_hash)
+    ).chat_id
+    print(f'{chat_id=}')
+
+    if (BOT_USERNAME in message.text) and (str(chat_id) in message.text) and (page_hash in message.text):
+        channel_id = message.chat.id
+        telegram_bot_url = generate_link_for_subscribe_page(channel_id)
+        bot.delete_message(channel_id, message.id)
+
+        response = requests.put(
+            'http://localhost:8000/api/v1/link-telegram/',
+            headers=DEFAULT_HEADERS,
+            json={
+                'telegram_username': message.chat.username,
+                'page_hash': page_hash,
+                'telegram_bot_url': telegram_bot_url
+            }
+        )
+        response_json = response.json()
+        session.execute(
+            update(PresentMessage).where(
+                PresentMessage.page_hash == page_hash
+            ).values(
+                channel_id=channel_id,
+                bot_button_text=response_json['bot_button_text'],
+                bot_button_url=response_json['bot_button_url'],
+                present_message=response_json['present_message'],
+                presubscribe_message=response_json['presubscribe_message'],
+            )
+        )
+        session.commit()
+        print(response_json)
+        bot.send_message(chat_id, text='Канал успешно привязан')
 
 
-
-bot.infinity_polling()
+if __name__ == '__main__':
+    bot.infinity_polling()
