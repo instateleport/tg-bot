@@ -70,6 +70,7 @@ def generate_channel_username(message):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    print(message)
     chat_id = message.chat.id
     start_parameter = get_start_parameter(message.text)
     reply = 'unexpected error'
