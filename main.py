@@ -65,20 +65,7 @@ def user_subscribed(chat_id, user_id):
 
 def generate_channel_username(message):
     print(message)
-    channel_username = ''
-    try:
-        return message.chat.username
-    except KeyError:
-        pass
-    try:
-        channel_username += message.chat.first_name
-    except KeyError:
-        pass
-    try:
-        channel_username += ' ' + message.chat.last_name
-    except KeyError:
-        pass
-    return channel_username
+    return message.chat.title
 
 
 @bot.message_handler(commands=['start'])
