@@ -145,6 +145,7 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
             }
         )
         response_json = response.json()
+        print(response_json)
         session.execute(
             update(PresentMessage).where(
                 PresentMessage.page_hash == page_hash
@@ -157,7 +158,6 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
             )
         )
         session.commit()
-        print(response_json)
         bot.send_message(chat_id, text='Канал успешно привязан')
 
 
