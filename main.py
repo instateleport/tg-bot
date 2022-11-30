@@ -63,6 +63,24 @@ def user_subscribed(chat_id, user_id):
     return False
 
 
+def generate_channel_username(message):
+    print(message)
+    channel_username = ''
+    try:
+        return message.chat.username
+    except KeyError:
+        pass
+    try:
+        channel_username += message.chat.first_name
+    except KeyError:
+        pass
+    try:
+        channel_username += ' ' + message.chat.last_name
+    except KeyError:
+        pass
+    return channel_username
+
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -139,7 +157,7 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
             f'{INSTATELEPORT_API_BASE_URL}link-telegram/',
             headers=DEFAULT_HEADERS,
             json={
-                'telegram_username': message.chat.username,
+                'telegram_username': generate_channel_username(message),
                 'page_hash': page_hash,
                 'telegram_bot_url': telegram_bot_url
             }
