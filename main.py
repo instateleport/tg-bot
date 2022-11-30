@@ -152,7 +152,7 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
         channel_id = message.chat.id
         telegram_bot_url = generate_link_for_subscribe_page(channel_id)
         bot.delete_message(channel_id, message.id)
-
+        print(generate_channel_username(message))
         response = requests.put(
             f'{INSTATELEPORT_API_BASE_URL}link-telegram/',
             headers=DEFAULT_HEADERS,
