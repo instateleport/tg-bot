@@ -72,10 +72,13 @@ def generate_channel_username(message):
 def send_welcome(message):
     print(message)
     chat_id = message.chat.id
+    print(chat_id)
     start_parameter = get_start_parameter(message.text)
+    print(start_parameter)
     reply = 'unexpected error'
     markup = ''
     if 'subscribe-page' in start_parameter:
+        print('subscribe page')
         channel_id = extract_channel_id_from_message(start_parameter)
         present_message = session.scalar(
             select(PresentMessage).where(PresentMessage.channel_id == channel_id)
@@ -129,6 +132,7 @@ def callback_query(call):
 
 @bot.channel_post_handler(content_types='text')
 def channel_has_message_for_linking_subscribe_page_handler(message):
+    print('channel linking')
     page_hash = extract_page_hash_from_message(message.text)
     print(f'{page_hash=}')
     chat_id = session.scalar(
