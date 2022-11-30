@@ -103,6 +103,7 @@ def send_welcome(message):
             session.commit()
         reply = LINKING_CHANNEL_MESSAGE
         markup = types.InlineKeyboardMarkup()
+        print(f'linked message is {chat_id}-{start_parameter}')
         markup.add(types.InlineKeyboardButton('Подключить канал', switch_inline_query=f'{chat_id}-{start_parameter}'))
     bot.send_message(chat_id, text=reply, reply_markup=markup)
 
@@ -118,10 +119,12 @@ def callback_query(call):
                 select(PresentMessage).where(PresentMessage.channel_id == channel_id)
             )
             if present_message:
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton(present_message.bot_button_text, url=present_message.bot_button_url))
                 bot.send_message(
                     call_from_id,
-                    present_message.present_message + f'\n<a href="{present_message.bot_button_url}">{present_message.bot_button_text}</a>',
-                    parse_mode='html'
+                    present_message.present_message,
+                    reply_markup=markup
                 )
             else:
                 reply = 'Произошла неизвестная ошибка'
