@@ -53,8 +53,8 @@ def find_invite_link(channel_id):
 def user_subscribed(chat_id, user_id):
     # Checking user sub
     try:
+        print(bot.get_chat_member(chat_id, user_id))
         if bot.get_chat_member(chat_id, user_id).status == 'member':
-            print(bot.get_chat_member(chat_id, user_id).status)
             return True
     except telebot.apihelper.ApiTelegramException:
         print('error')
