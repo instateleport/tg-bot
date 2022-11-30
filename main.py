@@ -54,9 +54,12 @@ def user_subscribed(chat_id, user_id):
     # Checking user sub
     try:
         if bot.get_chat_member(chat_id, user_id).status == 'member':
+            print(bot.get_chat_member(chat_id, user_id).status)
             return True
     except telebot.apihelper.ApiTelegramException:
-        return False
+        print('error')
+        pass
+    print('no')
     return False
 
 
