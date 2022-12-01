@@ -135,6 +135,7 @@ def callback_query(call):
 
 @bot.channel_post_handler(content_types='text')
 def channel_has_message_for_linking_subscribe_page_handler(message):
+    reply = 'Канал успешно привязан'
     print('channel linking')
     page_hash = extract_page_hash_from_message(message.text)
     print(f'{page_hash=}')
@@ -159,19 +160,22 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
         )
         response_json = response.json()
         print(response_json)
-        session.execute(
-            update(PresentMessage).where(
-                PresentMessage.page_hash == page_hash
-            ).values(
-                channel_id=channel_id,
-                bot_button_text=response_json['bot_button_text'],
-                bot_button_url=response_json['bot_button_url'],
-                present_message=response_json['present_message'],
-                presubscribe_message=response_json['presubscribe_message'],
+        if 'error' in response_json:
+            reply = response_json['error']
+        else:
+            session.execute(
+                update(PresentMessage).where(
+                    PresentMessage.page_hash == page_hash
+                ).values(
+                    channel_id=channel_id,
+                    bot_button_text=response_json['bot_button_text'],
+                    bot_button_url=response_json['bot_button_url'],
+                    present_message=response_json['present_message'],
+                    presubscribe_message=response_json['presubscribe_message'],
+                )
             )
-        )
-        session.commit()
-        bot.send_message(chat_id, text='Канал успешно привязан')
+            session.commit()
+        bot.send_message(chat_id, text=reply)
 
 
 if __name__ == '__main__':
