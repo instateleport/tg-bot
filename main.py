@@ -123,6 +123,7 @@ def callback_query(call):
             present_message = session.scalar(
                 select(PresentMessage).where(PresentMessage.channel_id == channel_id)
             )
+            teleport_api.update_subscribers_count(page_hash=present_message.page_hash)
             if present_message:
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton(present_message.bot_button_text, url=present_message.bot_button_url))
