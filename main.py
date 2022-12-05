@@ -42,8 +42,13 @@ def extract_channel_id_from_message(message):
     return message.split('_')[1]
 
 
-def generate_link_for_subscribe_page(channel_id):
-    return f'{BOT_URL}?start=subscribe-page_{channel_id}'
+def extract_page_hash_from_get_present_message(message):
+    '''if visit this bot via linked subscribe page'''
+    return message.split('_')[2]
+
+
+def generate_link_for_subscribe_page(channel_id, page_hash):
+    return f'{BOT_URL}?start=subscribe-page_{channel_id}_{page_hash}'
 
 
 def find_invite_link(channel_id):
@@ -81,13 +86,14 @@ def send_welcome(message):
     if 'subscribe-page' in start_parameter:
         logger.info('этот пользователь хочет получить подарок')
         channel_id = extract_channel_id_from_message(start_parameter)
+        page_hash = extract_page_hash_from_get_present_message(start_parameter)
         present_message = session.scalar(
-            select(PresentMessage).where(PresentMessage.channel_id == channel_id)
+            select(PresentMessage).where(PresentMessage.page_hash == page_hash)
         )
         if present_message:
             reply = present_message.presubscribe_message + ' ' + find_invite_link(channel_id)
             markup = types.InlineKeyboardMarkup()
-            markup.add(types.InlineKeyboardButton('Я подписался', callback_data=f'user-subscribed_{channel_id}'))
+            markup.add(types.InlineKeyboardButton('Я подписался', callback_data=f'user-subscribed_{channel_id}_{page_hash}'))
         else:
             reply = PRESENT_NOT_FOUND_MESSAGE
     else:
@@ -118,10 +124,11 @@ def callback_query(call):
     reply = None
     if 'user-subscribed' in call.data:
         channel_id = extract_channel_id_from_message(call.data)
+        page_hash = extract_page_hash_from_get_present_message(call.data)
         call_from_id = call.from_user.id
         if user_subscribed(channel_id, call_from_id):
             present_message = session.scalar(
-                select(PresentMessage).where(PresentMessage.channel_id == channel_id)
+                select(PresentMessage).where(PresentMessage.page_hash == page_hash)
             )
             teleport_api.update_subscribers_count(
                 page_hash=present_message.page_hash,
@@ -158,7 +165,7 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
 
     if (BOT_USERNAME in message.text) and (str(chat_id) in message.text) and (page_hash in message.text):
         channel_id = message.chat.id
-        telegram_bot_url = generate_link_for_subscribe_page(channel_id)
+        telegram_bot_url = generate_link_for_subscribe_page(channel_id, page_hash)
         bot.delete_message(channel_id, message.id)
 
         response = teleport_api.link_subscribe_telegram_page(
