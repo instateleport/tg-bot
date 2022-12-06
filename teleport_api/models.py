@@ -21,13 +21,14 @@ class TeleportAPI:
         )
         return response.json()
 
-    def update_subscribers_count(self, page_hash: str, chat_id: int, channel_id: int) -> dict:
+    def update_subscribers_count(self, page_hash: str, chat_id: int, channel_id: int, username: str) -> dict:
         response = self.patch_api_request(
             url='update-subscribe-telegram-page-statistic/',
             json={
                 'page_hash': page_hash,
                 'chat_id': f'{chat_id}',
-                'channel_id': f'{channel_id}'
+                'channel_id': f'{channel_id}',
+                'username': username
             }
         )
         return response

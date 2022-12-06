@@ -126,6 +126,7 @@ def callback_query(call):
         channel_id = extract_channel_id_from_message(call.data)
         page_hash = extract_page_hash_from_get_present_message(call.data)
         call_from_id = call.from_user.id
+        username = call.from_user.first_name + ' ' + call.from_user.last_name
         if user_subscribed(channel_id, call_from_id):
             present_message = session.scalar(
                 select(PresentMessage).where(PresentMessage.page_hash == page_hash)
@@ -133,7 +134,8 @@ def callback_query(call):
             teleport_api.update_subscribers_count(
                 page_hash=present_message.page_hash,
                 chat_id=call_from_id,
-                channel_id=channel_id
+                channel_id=channel_id,
+                username=username
             )
             if present_message:
                 markup = types.InlineKeyboardMarkup()
