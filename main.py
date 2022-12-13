@@ -165,7 +165,7 @@ def channel_has_message_for_linking(message):
         select(PresentMessage).where(PresentMessage.page_hash == page_hash)
     ).chat_id
     logger.debug(f'пользователь этого канала имеет {chat_id=}')
-    print(f'{BOT_USERNAME=}', f'{message.text=}', f'{page_hash=}')
+    logger.debug(f'{BOT_USERNAME=}', f'{message.text=}', f'{page_hash=}')
     if (BOT_USERNAME in message.text) and (str(chat_id) in message.text) and (page_hash in message.text):
         channel_id = message.chat.id
         telegram_bot_url = generate_link_for_subscribe_page(channel_id, page_hash)
