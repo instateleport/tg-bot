@@ -33,6 +33,8 @@ def get_start_parameter(text, default=''):
 
 
 def get_argument(value: str, index: int, default=None) -> str:
+    if len(value.split(' ')):
+        value = value.split(' ')[-1]
     try:
         return value.split('_')[index]
     except IndexError as e:
