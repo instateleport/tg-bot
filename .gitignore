@@ -1,5 +1,6 @@
 *.sqlite3
 *.log
+*.zip
 .env
 
 __pycache__/

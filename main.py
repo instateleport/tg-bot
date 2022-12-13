@@ -14,7 +14,7 @@ BOT_TOKEN = config['BOT_TOKEN']
 BOT_URL = config['BOT_URL']
 BOT_USERNAME = config['BOT_USERNAME']
 HEADER_AUTH = config['HEADER_AUTH']
-HEADER_JWT_TOKEN = config['HEADER_JWT_TOKEN']
+INSTATELEPORT_HEADER_TOKEN = config['INSTATELEPORT_HEADER_TOKEN']
 
 INSTATELEPORT_API_BASE_URL = config['INSTATELEPORT_API_BASE_URL']
 
@@ -23,7 +23,7 @@ PRESENT_NOT_FOUND_MESSAGE = config['PRESENT_NOT_FOUND_MESSAGE']
 
 bot = telebot.TeleBot(BOT_TOKEN)
 teleport_api = TeleportAPI(
-    auth_token=HEADER_JWT_TOKEN,
+    auth_token=INSTATELEPORT_HEADER_TOKEN,
     auth_header=HEADER_AUTH
 )
 
@@ -154,7 +154,8 @@ def callback_query(call):
 
 @logger.catch
 @bot.channel_post_handler(content_types='text')
-def channel_has_message_for_linking_subscribe_page_handler(message):
+def channel_has_message_for_linking(message):
+    print(12)
     reply = 'Канал успешно привязан'
     channel_username = generate_channel_username(message)
     page_hash = extract_page_hash_from_message(message.text)
@@ -164,7 +165,6 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
         select(PresentMessage).where(PresentMessage.page_hash == page_hash)
     ).chat_id
     logger.debug(f'пользователь этого канала имеет {chat_id=}')
-
     if (BOT_USERNAME in message.text) and (str(chat_id) in message.text) and (page_hash in message.text):
         channel_id = message.chat.id
         telegram_bot_url = generate_link_for_subscribe_page(channel_id, page_hash)
@@ -175,6 +175,7 @@ def channel_has_message_for_linking_subscribe_page_handler(message):
             page_hash=page_hash,
             telegram_bot_url=telegram_bot_url
         )
+        logger.info(f'{response=}')
         logger.info(f'ответ вызова привязки подписной страницы: {response}')
 
         if 'error' in response:
