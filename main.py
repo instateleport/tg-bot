@@ -32,19 +32,13 @@ def get_start_parameter(text, default=''):
     return text.split()[1] if len(text.split()) > 1 else default
 
 
-def extract_page_hash_from_message(message):
-    '''if visit this bot for linking channel to subscribe page'''
-    return message.split('-')[1]
-
-
-def extract_channel_id_from_message(message):
-    '''if visit this bot via linked subscribe page'''
-    return message.split('_')[1]
-
-
-def extract_page_hash_from_get_present_message(message):
-    '''if visit this bot via linked subscribe page'''
-    return message.split('_')[2]
+def get_argument(value: str, index: int, default=None) -> str:
+    try:
+        return value.split('_')[index]
+    except IndexError as e:
+        if default is None:
+            raise e
+        return default
 
 
 def generate_link_for_subscribe_page(channel_id, page_hash):
@@ -52,12 +46,12 @@ def generate_link_for_subscribe_page(channel_id, page_hash):
 
 
 def find_invite_link(channel_id):
-    # Here we finding chanel associated with ID
+    '''Here we finding chanel associated with ID'''
     return bot.get_chat(channel_id).invite_link
 
 
 def user_subscribed(chat_id, user_id):
-    # Checking user sub
+    '''Checking user subscribe to channel'''
     try:
         print(bot.get_chat_member(chat_id, user_id))
         if bot.get_chat_member(chat_id, user_id).status != 'left':
@@ -85,8 +79,8 @@ def send_welcome(message):
     markup = ''
     if 'subscribe-page' in start_parameter:
         logger.info('этот пользователь хочет получить подарок')
-        channel_id = extract_channel_id_from_message(start_parameter)
-        page_hash = extract_page_hash_from_get_present_message(start_parameter)
+        channel_id = get_argument(start_parameter, 1)
+        page_hash = get_argument(start_parameter, 2)
         present_message = session.scalar(
             select(PresentMessage).where(PresentMessage.page_hash == page_hash)
         )
@@ -112,9 +106,9 @@ def send_welcome(message):
         reply = LINKING_CHANNEL_MESSAGE
         markup = types.InlineKeyboardMarkup()
 
-        logger.debug(f'сообщение для привязки есть {chat_id}-{start_parameter}')
+        logger.debug(f'сообщение для привязки есть {chat_id}_{start_parameter}')
 
-        markup.add(types.InlineKeyboardButton('Подключить канал', switch_inline_query=f'{chat_id}-{start_parameter}'))
+        markup.add(types.InlineKeyboardButton('Подключить канал', switch_inline_query=f'{chat_id}_{start_parameter}'))
     bot.send_message(chat_id, text=reply, reply_markup=markup)
 
 
@@ -123,8 +117,8 @@ def send_welcome(message):
 def callback_query(call):
     reply = None
     if 'user-subscribed' in call.data:
-        channel_id = extract_channel_id_from_message(call.data)
-        page_hash = extract_page_hash_from_get_present_message(call.data)
+        channel_id = get_argument(call.data, 1)
+        page_hash = get_argument(call.data, 2)
         call_from_id = call.from_user.id
         username = call.from_user.first_name + ' ' + call.from_user.last_name
         if user_subscribed(channel_id, call_from_id):
@@ -158,7 +152,7 @@ def channel_has_message_for_linking(message):
     print(12)
     reply = 'Канал успешно привязан'
     channel_username = generate_channel_username(message)
-    page_hash = extract_page_hash_from_message(message.text)
+    page_hash = get_argument(message.text, 1)
     logger.info(f'начинается привязка подписной страницы {page_hash} к каналу {channel_username}')
 
     chat_id = session.scalar(
